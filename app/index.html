@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GrantTranche — a grant rubric read against public evidence</title>
+<meta name="description" content="A funder writes the grantee, the rubric and the tranche count once. The grantee points at a page; validators judge every criterion with a quote; the contract issues a tranche receipt only when all of them are met." />
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --ink:#1c2430; --muted:#697586; --line:#e2e6ec;
+    --accent:#2f5fd0; --ok:#1f7a4d; --warn:#9a5b00; --bad:#a32b2b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1120px;margin:0 auto;padding:26px 20px 80px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:650;letter-spacing:-.01em;font-size:19px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:12.5px;color:var(--muted)}
+  .chip b{color:var(--ink);font-weight:600}
+  h2{font-size:15px;font-weight:650;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:1fr 330px;gap:18px;align-items:start}
+  @media(max-width:920px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+  .stat span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .stat b{font-size:19px;font-weight:650}
+  label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 4px}
+  input,textarea,select{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;
+    font:inherit;color:var(--ink);background:#fff}
+  textarea{min-height:70px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:2px solid #cdd9f5;border-color:#b9c9ee}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:700px){.row{grid-template-columns:1fr}}
+  button{font:inherit;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);
+    padding:9px 13px;cursor:pointer}
+  button:hover{border-color:#c9d2e2}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.small{padding:6px 10px;font-size:13px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+  .grant{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px;margin-bottom:12px}
+  .grant h3{margin:0 0 6px;font-size:15px;font-weight:650}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .pill{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:#fbfcfd}
+  .pill.open{color:var(--accent);border-color:#cdd9f5;background:#f2f5fd}
+  .pill.complete{color:var(--ok);border-color:#cfe8db;background:#f1faf5}
+  .pill.closed{color:var(--bad);border-color:#f0cfd0;background:#fdf1f1}
+  .kv{font-size:13px;color:var(--muted);margin:3px 0}
+  .kv b{color:var(--ink);font-weight:600}
+  .bar{height:7px;border-radius:999px;background:#eef1f6;overflow:hidden;margin:9px 0 4px}
+  .bar span{display:block;height:100%;background:var(--accent)}
+  .crit{border-left:2px solid var(--line);padding:2px 0 2px 10px;margin:6px 0;font-size:13px}
+  .crit.met{border-color:#7fbf9c} .crit.miss{border-color:#e3b4b4}
+  .crit b{font-weight:600}
+  .quote{color:var(--muted);font-size:12.5px;margin-top:2px}
+  #log{display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+    background:#1c2430;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;
+    max-width:88vw;z-index:50}
+  .steps{font-size:13px;color:var(--muted);margin:0;padding-left:18px}
+  .steps li{margin:6px 0}
+  .links a{display:block;font-size:13px;margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><span class="dot"></span> GrantTranche</div>
+    <div class="chips">
+      <span class="chip">contract <a id="contractlink" target="_blank" rel="noreferrer"></a></span>
+      <span class="chip" id="walletchip">key</span>
+      <select id="acting" style="width:auto;padding:6px 10px;font-size:12.5px"></select>
+      <button class="small" id="genkey">New key</button>
+      <button class="small" id="importkey">Import</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><span>grants</span><b id="s-grants">0</b></div>
+    <div class="stat"><span>open</span><b id="s-open">0</b></div>
+    <div class="stat"><span>complete</span><b id="s-complete">0</b></div>
+    <div class="stat"><span>tranches approved</span><b id="s-approved">0</b></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Open a grant</h2>
+        <p class="sub">The funder writes the grantee, the rubric and the tranche count once. The rubric cannot change afterwards: criteria that move after the work starts are not criteria.</p>
+        <div class="row">
+          <div><label for="gid">grant id</label><input id="gid" placeholder="docs-grant-2026" /></div>
+          <div><label for="gtitle">title</label><input id="gtitle" placeholder="Docs tooling, three tranches" /></div>
+        </div>
+        <div class="row">
+          <div><label for="ggrantee">grantee address (0x…)</label><input id="ggrantee" placeholder="0x…" /></div>
+          <div><label for="gtranches">tranches (1–12)</label><input id="gtranches" type="number" min="1" max="12" value="2" /></div>
+        </div>
+        <label for="grubric">rubric — one criterion per line, 2 to 6</label>
+        <textarea id="grubric" rows="4" placeholder="a public code repository with the contract source&#10;a live application URL that calls the contract&#10;a written usage report with numbers"></textarea>
+        <div class="actions">
+          <button class="primary" id="open">Open the grant</button>
+          <button id="sample">Use the demo rubric</button>
+          <button id="usemekey">Grantee = my key</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Grants</h2>
+        <p class="sub">A tranche is approved only when every criterion is met. Partial readings are kept: the best count for the current tranche stays, so a later, worse attempt cannot lower it.</p>
+        <div id="grants"></div>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card">
+        <h2>What a round does</h2>
+        <ol class="steps">
+          <li>Validators fetch the evidence page.</li>
+          <li>For every criterion they answer met true or false and quote the fragment that supports it.</li>
+          <li>The round settles only when the vector of true/false matches across validators; quotes and reasons are free.</li>
+          <li>The contract counts the met criteria and issues the receipt when all are met.</li>
+        </ol>
+      </div>
+      <div class="card links">
+        <h2>Demo evidence</h2>
+        <a href="/demo/evidence-partial.html" target="_blank">meets two of three criteria</a>
+        <a href="/demo/evidence-full.html" target="_blank">meets all three</a>
+      </div>
+      <div class="card">
+        <h2>What it is not</h2>
+        <p class="sub" style="margin:0">The contract holds no funds. It settles the question a payment depends on and writes an immutable receipt per tranche that a treasury or multisig executes.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+<div id="log"></div>
+<script src="./bundle.js"></script>
+</body>
+</html>

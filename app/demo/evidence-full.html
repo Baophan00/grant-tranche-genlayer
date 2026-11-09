@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Milestone 1 — evidence</title>
+<style>body{margin:0;background:#f5f6f8;color:#1c2430;font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}main{max-width:760px;margin:0 auto;padding:48px 22px 90px}h1{font-size:27px;line-height:1.25;letter-spacing:-.02em}h2{font-size:18px;margin-top:30px}small{color:#697586}code{background:#eef1f6;padding:1px 5px;border-radius:4px;font-size:14px}</style></head>
+<body><main><h1>Milestone 1 — grantee evidence</h1>
+<small>Grant: docs tooling · tranche 1 · submitted by the grantee</small>
+
+<h2>1. The code</h2>
+<p>The contract and the app live in a public repository: <a href="https://github.com/Baophan00/grant-tranche-genlayer">github.com/Baophan00/grant-tranche-genlayer</a>. The contract source is at <code>contracts/grant_tranche.py</code>, the direct tests at <code>tests/direct/test_grant_tranche.py</code>, and the deploy and e2e scripts at <code>scripts/</code>. The repository is public and readable without an account.</p>
+
+<h2>2. The live app</h2>
+<p>The app is deployed at <a href="https://grant-tranche.surge.sh">grant-tranche.surge.sh</a>. It calls the contract on GenLayer Studio Network: opening a grant, submitting evidence and reading receipts are all contract calls, and every action shows the transaction while the consensus round runs.</p>
+<h2>3. Usage</h2>
+<p>In the first two weeks the app ran 412 tranche submissions across 27 grants. The median consensus round took 51 seconds and 96% of receipts were issued on the first attempt that met every criterion. Twelve of the 27 grants completed all of their tranches, and the funders closed four grants early after a partial reading showed that two of three criteria were still missing.</p>
+<p>Every number here comes from the receipt history on the contract address <code>0x80c04eAbe8B085e27E7000Be9A0f688d1f32347A</code>, which is public and can be re-read.</p></main></body></html>

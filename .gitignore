@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+artifacts/
+scripts/.deploy-keys.json
+scripts/.e2e-keys.json
