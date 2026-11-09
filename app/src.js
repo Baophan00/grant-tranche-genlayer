@@ -253,7 +253,10 @@ async function refresh() {
       box.append(grantCard(grant, latest));
     }
   } catch (e) {
-    $("grants").replaceChildren(el("div", "kv", String((e && e.message) || e).slice(0, 180)));
+    setTimeout(refresh, 3000);
+    if (!$("grants").childElementCount) {
+      $("grants").replaceChildren(el("div", "kv", String((e && e.message) || e).slice(0, 180)));
+    }
   }
 }
 
