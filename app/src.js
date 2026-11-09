@@ -74,6 +74,7 @@ function paintKey() {
 
 $("contractlink").textContent = short(CONTRACT);
 $("contractlink").href = EXPLORER;
+paintKey();
 
 $("acting").onchange = (e) => useKey(Number(e.target.value) || 0);
 $("genkey").onclick = () => {
