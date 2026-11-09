@@ -3,105 +3,190 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GrantTranche — a grant rubric read against public evidence</title>
+<title>GrantTranche — the ledger of tranche receipts</title>
 <meta name="description" content="A funder writes the grantee, the rubric and the tranche count once. The grantee points at a page; validators judge every criterion with a quote; the contract issues a tranche receipt only when all of them are met." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#f5f6f8; --card:#ffffff; --ink:#1c2430; --muted:#697586; --line:#e2e6ec;
-    --accent:#2f5fd0; --ok:#1f7a4d; --warn:#9a5b00; --bad:#a32b2b;
+    --bone:#f6f7f3; --panel:#fbfcf9; --ink:#0d1f18; --muted:#5f6f66;
+    --rule:#d7ded6; --rule-ink:#152a21; --green:#0e6b4a; --gold:#9b7a25; --red:#a33a2a;
+    --sans:Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --display:Archivo, Inter, sans-serif;
+    --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
-    -webkit-font-smoothing:antialiased}
-  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
-  .wrap{max-width:1120px;margin:0 auto;padding:26px 20px 80px}
-  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:650;letter-spacing:-.01em;font-size:19px}
-  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
-  .chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:12.5px;color:var(--muted)}
-  .chip b{color:var(--ink);font-weight:600}
-  h2{font-size:15px;font-weight:650;margin:0 0 4px}
-  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
-  .grid{display:grid;grid-template-columns:1fr 330px;gap:18px;align-items:start}
-  @media(max-width:920px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-  .stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px 13px}
-  .stat span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-  .stat b{font-size:19px;font-weight:650}
-  label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 4px}
-  input,textarea,select{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;
-    font:inherit;color:var(--ink);background:#fff}
-  textarea{min-height:70px;resize:vertical}
-  input:focus,textarea:focus,select:focus{outline:2px solid #cdd9f5;border-color:#b9c9ee}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media(max-width:700px){.row{grid-template-columns:1fr}}
-  button{font:inherit;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);
-    padding:9px 13px;cursor:pointer}
-  button:hover{border-color:#c9d2e2}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  button.small{padding:6px 10px;font-size:13px}
-  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
-  .grant{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px;margin-bottom:12px}
-  .grant h3{margin:0 0 6px;font-size:15px;font-weight:650}
-  .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
-  .pill{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:#fbfcfd}
-  .pill.open{color:var(--accent);border-color:#cdd9f5;background:#f2f5fd}
-  .pill.complete{color:var(--ok);border-color:#cfe8db;background:#f1faf5}
-  .pill.closed{color:var(--bad);border-color:#f0cfd0;background:#fdf1f1}
-  .kv{font-size:13px;color:var(--muted);margin:3px 0}
-  .kv b{color:var(--ink);font-weight:600}
-  .bar{height:7px;border-radius:999px;background:#eef1f6;overflow:hidden;margin:9px 0 4px}
-  .bar span{display:block;height:100%;background:var(--accent)}
-  .crit{border-left:2px solid var(--line);padding:2px 0 2px 10px;margin:6px 0;font-size:13px}
-  .crit.met{border-color:#7fbf9c} .crit.miss{border-color:#e3b4b4}
-  .crit b{font-weight:600}
-  .quote{color:var(--muted);font-size:12.5px;margin-top:2px}
-  #log{display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
-    background:#1c2430;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;
-    max-width:88vw;z-index:50}
-  .steps{font-size:13px;color:var(--muted);margin:0;padding-left:18px}
-  .steps li{margin:6px 0}
-  .links a{display:block;font-size:13px;margin:4px 0}
+  body{margin:0;background:var(--bone);color:var(--ink);font:14.5px/1.6 var(--sans);
+    -webkit-font-smoothing:antialiased;
+    background-image:repeating-linear-gradient(to bottom, rgba(21,42,33,.035) 0 1px, transparent 1px 34px)}
+  a{color:var(--green);text-decoration:none} a:hover{text-decoration:underline}
+  .shell{max-width:1200px;margin:0 auto;padding:22px 24px 90px}
+
+  /* top bar */
+  .bar-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+    border-bottom:2px solid var(--rule-ink);padding-bottom:10px}
+  .brandline{display:flex;align-items:baseline;gap:10px}
+  .brand{font:700 15px/1 var(--display);letter-spacing:.02em;text-transform:uppercase}
+  .brand .tick{display:inline-block;width:10px;height:10px;background:var(--green);margin-right:8px}
+  .tag{font:500 9.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .chip{font:500 10.5px/1 var(--mono);letter-spacing:.05em;color:var(--muted);
+    border:1px solid var(--rule);padding:6px 8px;background:var(--panel)}
+  .chip a{border:0}
+  .chips select{width:auto;max-width:230px;border:1px solid var(--rule);background:var(--panel);
+    font:500 10.5px/1 var(--mono);color:var(--ink);padding:7px 8px}
+
+  /* hero */
+  .hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:30px;align-items:end;
+    padding:30px 0 22px}
+  @media(max-width:860px){.hero{grid-template-columns:1fr;gap:12px;align-items:start}}
+  .hero h1{font:700 clamp(38px,6vw,64px)/.94 var(--display);letter-spacing:-.035em;margin:0}
+  .hero h1 span{color:var(--green)}
+  .hero p{margin:0;color:var(--muted);font-size:14px;max-width:44ch}
+  .hero p b{color:var(--ink);font-weight:500}
+
+  /* stats strip */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:2px solid var(--rule-ink);
+    border-bottom:1px solid var(--rule-ink);background:rgba(251,252,249,.6)}
+  @media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{padding:14px 16px;border-right:1px solid var(--rule)}
+  .stat:last-child{border-right:0}
+  .stat span{display:block;font:500 9.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .stat b{display:block;margin-top:6px;font:600 30px/1 var(--mono);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+  /* layout */
+  .main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:34px;margin-top:30px;align-items:start}
+  @media(max-width:960px){.main{grid-template-columns:1fr}}
+  .sect-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+    border-bottom:1px solid var(--rule-ink);padding-bottom:7px;margin:0 0 16px}
+  .sect-head h2{font:600 17px/1.2 var(--display);letter-spacing:.01em;text-transform:uppercase;margin:0}
+  .sect-head span{font:500 9.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .block{margin-bottom:34px}
+
+  /* form */
+  .field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  @media(max-width:660px){.field-grid{grid-template-columns:1fr}}
+  label{display:block;font:500 9.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
+  input,textarea,select{width:100%;border:1px solid var(--rule);background:var(--panel);
+    padding:9px 10px;font:13.5px/1.5 var(--sans);color:var(--ink);border-radius:0}
+  input:focus,textarea:focus{outline:2px solid rgba(14,107,74,.22);border-color:var(--green)}
+  textarea{min-height:82px;resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.7}
+  button{font:500 10.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+    border:1px solid var(--rule-ink);background:transparent;color:var(--ink);padding:10px 13px;cursor:pointer;
+    transition:background .15s ease,color .15s ease,transform .1s ease}
+  button:hover{background:var(--ink);color:var(--bone)}
+  button:active{transform:translateY(1px)}
+  button.primary{background:var(--green);border-color:var(--green);color:#f4fbf7}
+  button.primary:hover{background:#0a5238;border-color:#0a5238}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+
+  /* ledger */
+  #grants{counter-reset:ledger}
+  .grant{position:relative;border-top:1px solid var(--rule);padding:18px 0 20px 72px;
+    animation:rise .3s ease both;transition:background .18s ease}
+  .grant:hover{background:rgba(14,107,74,.035)}
+  .grant::before{counter-increment:ledger;content:counter(ledger,decimal-leading-zero);
+    position:absolute;left:0;top:19px;font:500 22px/1 var(--mono);color:var(--muted);letter-spacing:-.03em}
+  .grant h3{font:600 19px/1.25 var(--display);letter-spacing:-.01em;margin:0 0 6px}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .pill{font:500 9px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+    border:1px solid var(--rule-ink);padding:4px 6px;color:var(--muted);white-space:nowrap}
+  .pill.open{color:var(--green);border-color:var(--green)}
+  .pill.complete{color:#fff;background:var(--gold);border-color:var(--gold);
+    transform:rotate(-1.4deg);box-shadow:2px 2px 0 rgba(13,31,24,.15)}
+  .pill.closed{color:var(--red);border-color:var(--red)}
+  .kv{font:11.5px/1.65 var(--mono);color:var(--muted);margin:2px 0;word-break:break-word}
+  .kv b{color:var(--ink);font-weight:500}
+
+  /* tranche progress: segmented ledger bar */
+  .bar{height:16px;margin:12px 0 5px;background:var(--panel);
+    border:1px solid var(--rule-ink);
+    background-image:repeating-linear-gradient(90deg,transparent 0 calc(100%/var(--n,12) - 1px),var(--rule) calc(100%/var(--n,12) - 1px) calc(100%/var(--n,12)));
+    overflow:hidden}
+  .bar span{display:block;height:100%;background:var(--green);transition:width .55s cubic-bezier(.23,1,.32,1)}
+
+  /* rubric checklist */
+  .crit{display:flex;gap:8px;align-items:flex-start;
+    padding:7px 0;border-bottom:1px dotted var(--rule);font-size:13px}
+  .crit::before{flex:0 0 13px;font:600 12px/1.5 var(--mono);color:var(--muted);content:"—"}
+  .crit.met::before{content:"✓";color:var(--green)}
+  .crit.miss::before{content:"×";color:var(--red)}
+  .crit b{font-weight:600;color:var(--muted)}
+  .quote{font:11.5px/1.6 var(--mono);color:var(--muted);
+    border-left:2px solid var(--rule);padding:2px 0 2px 9px;margin:4px 0 2px 21px}
+  .crit.met + .quote{border-color:var(--green)}
+  .crit.miss + .quote{border-color:var(--red)}
+  .grant .actions input{max-width:330px;flex:1 1 230px;font-family:var(--mono);font-size:11.5px}
+
+  /* aside */
+  .panel{border-top:2px solid var(--rule-ink);padding:12px 0 20px;margin-bottom:6px}
+  .panel h3{font:600 13px/1.3 var(--display);letter-spacing:.02em;text-transform:uppercase;margin:0 0 9px}
+  .panel ol{margin:0;padding-left:16px;font-size:12.5px;color:var(--muted)}
+  .panel li{margin:7px 0}
+  .panel .fine{font-size:12.5px;color:var(--muted);margin:0}
+  .panel a{display:block;font-size:12.5px;padding:6px 0;border-bottom:1px dotted var(--rule)}
+
+  @media(max-width:560px){
+    .shell{padding:18px 16px 70px}
+    .grant{padding-left:46px}
+    .grant::before{font-size:16px;top:22px}
+    .quote{margin-left:16px}
+    .grant .actions input{max-width:none;flex:1 1 100%}
+  }
+  footer{margin-top:38px;border-top:2px solid var(--rule-ink);padding-top:10px;
+    display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    font:500 9.5px/1.6 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  #log{display:none;position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
+    background:var(--ink);color:var(--bone);padding:10px 16px;font:11.5px var(--mono);
+    max-width:90vw;z-index:50;border-left:3px solid var(--gold)}
+  @keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <div class="brand"><span class="dot"></span> GrantTranche</div>
+<div class="shell">
+  <div class="bar-top">
+    <div class="brandline">
+      <span class="brand"><span class="tick"></span>GrantTranche</span>
+      <span class="tag">Tranche ledger · Studio Network</span>
+    </div>
     <div class="chips">
       <span class="chip">contract <a id="contractlink" target="_blank" rel="noreferrer"></a></span>
       <span class="chip" id="walletchip">key</span>
-      <select id="acting" style="width:auto;padding:6px 10px;font-size:12.5px"></select>
-      <button class="small" id="genkey">New key</button>
-      <button class="small" id="importkey">Import</button>
+      <select id="acting"></select>
+      <button class="chip" style="cursor:pointer" id="genkey">New key</button>
+      <button class="chip" style="cursor:pointer" id="importkey">Import</button>
     </div>
-  </header>
-
-  <div class="stats">
-    <div class="stat"><span>grants</span><b id="s-grants">0</b></div>
-    <div class="stat"><span>open</span><b id="s-open">0</b></div>
-    <div class="stat"><span>complete</span><b id="s-complete">0</b></div>
-    <div class="stat"><span>tranches approved</span><b id="s-approved">0</b></div>
   </div>
 
-  <div class="grid">
+  <section class="hero">
+    <h1>Tranche receipts,<br /><span>not Friday afternoons.</span></h1>
+    <p>The rubric is written once, when the grant opens. Every tranche is then a public page, read <b>criterion by criterion</b>, and a receipt that only exists when all of them are met.</p>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><span>Grants</span><b id="s-grants">0</b></div>
+    <div class="stat"><span>Open</span><b id="s-open">0</b></div>
+    <div class="stat"><span>Complete</span><b id="s-complete">0</b></div>
+    <div class="stat"><span>Tranches approved</span><b id="s-approved">0</b></div>
+  </div>
+
+  <div class="main">
     <div>
-      <div class="card">
-        <h2>Open a grant</h2>
-        <p class="sub">The funder writes the grantee, the rubric and the tranche count once. The rubric cannot change afterwards: criteria that move after the work starts are not criteria.</p>
-        <div class="row">
-          <div><label for="gid">grant id</label><input id="gid" placeholder="docs-grant-2026" /></div>
-          <div><label for="gtitle">title</label><input id="gtitle" placeholder="Docs tooling, three tranches" /></div>
+      <div class="block">
+        <div class="sect-head"><h2>Open a grant</h2><span>Entry 01</span></div>
+        <div class="field-grid">
+          <div><label for="gid">Grant id</label><input id="gid" placeholder="docs-grant-2026" /></div>
+          <div><label for="gtitle">Title</label><input id="gtitle" placeholder="Docs tooling, two tranches" /></div>
         </div>
-        <div class="row">
-          <div><label for="ggrantee">grantee address (0x…)</label><input id="ggrantee" placeholder="0x…" /></div>
-          <div><label for="gtranches">tranches (1–12)</label><input id="gtranches" type="number" min="1" max="12" value="2" /></div>
+        <div class="field-grid">
+          <div><label for="ggrantee">Grantee address</label><input id="ggrantee" placeholder="0x…" /></div>
+          <div><label for="gtranches">Tranches — 1 to 12</label><input id="gtranches" type="number" min="1" max="12" value="2" /></div>
         </div>
-        <label for="grubric">rubric — one criterion per line, 2 to 6</label>
+        <label for="grubric">Rubric — one criterion per line, 2 to 6</label>
         <textarea id="grubric" rows="4" placeholder="a public code repository with the contract source&#10;a live application URL that calls the contract&#10;a written usage report with numbers"></textarea>
         <div class="actions">
           <button class="primary" id="open">Open the grant</button>
@@ -110,34 +195,38 @@
         </div>
       </div>
 
-      <div class="card">
-        <h2>Grants</h2>
-        <p class="sub">A tranche is approved only when every criterion is met. Partial readings are kept: the best count for the current tranche stays, so a later, worse attempt cannot lower it.</p>
+      <div class="block">
+        <div class="sect-head"><h2>The ledger</h2><span>Newest first</span></div>
         <div id="grants"></div>
       </div>
     </div>
 
     <aside>
-      <div class="card">
-        <h2>What a round does</h2>
-        <ol class="steps">
+      <div class="panel">
+        <h3>What a round does</h3>
+        <ol>
           <li>Validators fetch the evidence page.</li>
-          <li>For every criterion they answer met true or false and quote the fragment that supports it.</li>
-          <li>The round settles only when the vector of true/false matches across validators; quotes and reasons are free.</li>
-          <li>The contract counts the met criteria and issues the receipt when all are met.</li>
+          <li>Each criterion gets one true or false and the fragment that decided it.</li>
+          <li>The round settles when the true/false vector matches; quotes are free.</li>
+          <li>The contract issues the receipt only when every criterion is met.</li>
         </ol>
       </div>
-      <div class="card links">
-        <h2>Demo evidence</h2>
+      <div class="panel">
+        <h3>Demo evidence</h3>
         <a href="/demo/evidence-partial.html" target="_blank">meets two of three criteria</a>
         <a href="/demo/evidence-full.html" target="_blank">meets all three</a>
       </div>
-      <div class="card">
-        <h2>What it is not</h2>
-        <p class="sub" style="margin:0">The contract holds no funds. It settles the question a payment depends on and writes an immutable receipt per tranche that a treasury or multisig executes.</p>
+      <div class="panel">
+        <h3>What it is not</h3>
+        <p class="fine">No funds are held. The contract settles the question a payment depends on and writes the receipt a treasury executes.</p>
       </div>
     </aside>
   </div>
+
+  <footer>
+    <span>GrantTranche · tranche ledger</span>
+    <span>Rubric fixed once · receipts only when complete</span>
+  </footer>
 </div>
 <div id="log"></div>
 <script src="./bundle.js"></script>

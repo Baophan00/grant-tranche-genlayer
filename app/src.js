@@ -184,6 +184,7 @@ function grantCard(grant, latest) {
   card.append(el("div", "kv", `id ${grant.id} · funder ${short(grant.funder)} → grantee ${short(grant.grantee)}`));
 
   const bar = el("div", "bar");
+  bar.style.setProperty("--n", String(grant.tranches));
   const fill = el("span");
   fill.style.width = `${Math.round((grant.approved / grant.tranches) * 100)}%`;
   bar.append(fill);
