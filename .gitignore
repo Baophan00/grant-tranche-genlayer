@@ -3,3 +3,5 @@ node_modules/
 artifacts/
 scripts/.deploy-keys.json
 scripts/.e2e-keys.json
+__pycache__/
+*.pyc

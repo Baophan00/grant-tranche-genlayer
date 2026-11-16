@@ -1,7 +1,7 @@
 import { createClient, createAccount, generatePrivateKey } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
-const CONTRACT = "0x80c04eAbe8B085e27E7000Be9A0f688d1f32347A";
+const CONTRACT = "0xd1598659C5Ead3D4c95d5f9267eA5dA0EFd4B89E";
 const EXPLORER = `https://explorer-studio.genlayer.com/address/${CONTRACT}`;
 const KEY_SLOT = "granttranche.keys";
 const DEMO = {
@@ -162,7 +162,7 @@ async function receipts(card, grantId) {
       const line = el("div", "kv");
       line.append(
         document.createTextNode(
-          `tranche ${row.tranche} · attempt ${row.seq} · ${row.met}/${row.total} met · ${row.approved ? "receipt issued" : "not approved"} · ${new Date(row.created_at * 1000).toLocaleString()}`
+          `tranche ${row.tranche} · attempt ${row.seq} · ${row.met}/${row.total} met · ${row.approved ? "receipt issued" : "not approved"}${row.revoked ? " · revoked by a challenge" : ""} · ${new Date(row.created_at * 1000).toLocaleString()}`
         )
       );
       box.append(line);
@@ -180,6 +180,9 @@ function grantCard(grant, latest) {
   meta.append(el("span", "pill", `tranche ${grant.current_tranche} of ${grant.tranches}`));
   meta.append(el("span", "pill", `${grant.approved} approved`));
   if (grant.status === "open") meta.append(el("span", "pill", `best ${grant.best}/${grant.rubric.length}`));
+  if (grant.challenge && grant.challenge.state) {
+    meta.append(el("span", "pill", `challenge ${grant.challenge.state}`));
+  }
   card.append(meta);
   card.append(el("h3", "", grant.title));
   card.append(el("div", "kv", `id ${grant.id} · funder ${short(grant.funder)} → grantee ${short(grant.grantee)}`));

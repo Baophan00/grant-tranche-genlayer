@@ -101,6 +101,26 @@ class Receipt:
     approved: bool
     verdict: str         # canonical JSON: [{criterion, met, quote}]
     reason: str
+    revoked: bool        # a challenge re-read the page and did not agree
+    created_at: u256
+
+
+@allow_storage
+@dataclass
+class Challenge:
+    grant_id: str
+    tranche: u256
+    receipt_seq: u256
+    caller: str
+    reason: str
+    state: str           # rejected | upheld | restored
+    reread_met: u256
+    reread_total: u256
+    reread_verdict: str  # canonical JSON, same shape as a receipt verdict
+    answer_url: str
+    answer_met: u256
+    answer_total: u256
+    answer_verdict: str
     created_at: u256
 
 
@@ -108,6 +128,7 @@ class GrantTranche(gl.Contract):
     grants: TreeMap[str, Grant]
     grant_ids: DynArray[str]
     receipts: TreeMap[str, Receipt]
+    challenges: TreeMap[str, Challenge]   # key: "<grant id>#<tranche>"
 
     def __init__(self):
         pass
@@ -135,10 +156,36 @@ class GrantTranche(gl.Contract):
             "seq": int(receipt.seq), "grant_id": receipt.grant_id,
             "tranche": int(receipt.tranche), "evidence_url": receipt.evidence_url,
             "caller": receipt.caller, "met": int(receipt.met), "total": int(receipt.total),
-            "approved": bool(receipt.approved),
+            "approved": bool(receipt.approved), "revoked": bool(receipt.revoked),
             "verdict": json.loads(receipt.verdict),
             "reason": receipt.reason, "created_at": int(receipt.created_at),
         }
+
+    def _challenge_dict(self, challenge: Challenge) -> dict:
+        return {
+            "grant_id": challenge.grant_id, "tranche": int(challenge.tranche),
+            "receipt_seq": int(challenge.receipt_seq), "caller": challenge.caller,
+            "reason": challenge.reason, "state": challenge.state,
+            "reread_met": int(challenge.reread_met), "reread_total": int(challenge.reread_total),
+            "reread_verdict": json.loads(challenge.reread_verdict),
+            "answer_url": challenge.answer_url,
+            "answer_met": int(challenge.answer_met), "answer_total": int(challenge.answer_total),
+            "answer_verdict": json.loads(challenge.answer_verdict) if challenge.answer_verdict else [],
+            "created_at": int(challenge.created_at),
+        }
+
+    def _approved_receipt(self, grant_id: str, tranche: int):
+        """The receipt that issued a tranche, if it is still standing."""
+        key = 1
+        found = None
+        while True:
+            receipt = self.receipts.get(f"{grant_id}#{key}")
+            if receipt is None:
+                break
+            if int(receipt.tranche) == tranche and receipt.approved and not receipt.revoked:
+                found = receipt
+            key += 1
+        return found
 
     # ------------------------------------------------------------------- round
 
@@ -313,6 +360,7 @@ class GrantTranche(gl.Contract):
             evidence_url=evidence_url.strip(), caller=self._sender(),
             met=u256(met), total=u256(total), approved=approved,
             verdict=self._canonical(reading["verdict"]), reason=reading["reason"],
+            revoked=False,
             created_at=u256(int(_dt.datetime.now(_dt.timezone.utc).timestamp())),
         )
         self.receipts[f"{grant.id}#{seq}"] = receipt
@@ -339,22 +387,138 @@ class GrantTranche(gl.Contract):
         self.grants[grant.id] = grant
         return {"grant_id": grant.id, "status": grant.status, "approved": int(grant.approved)}
 
+    @gl.public.write
+    def challenge_tranche(self, grant_id: str, tranche: int, reason: str) -> dict:
+        """The funder asks for a second read of the page a receipt was issued on.
+
+        A receipt is one consensus round. Before a treasury pays against it, the
+        funder may ask for a second, independent round over the same page and the
+        same fixed rubric. The challenge succeeds only when the second reading
+        disagrees: if any criterion the receipt marked met is not met now, the
+        tranche is revoked and returns to the grantee.
+        """
+        grant = self._load(grant_id)
+        if self._sender() != grant.funder:
+            raise gl.vm.UserError("only the funder challenges a receipt")
+        if not isinstance(tranche, int) or isinstance(tranche, bool):
+            raise gl.vm.UserError("the tranche number must be a number")
+        approved = int(grant.approved)
+        if tranche < 1 or tranche > approved:
+            raise gl.vm.UserError(f"tranche {tranche} has no standing receipt")
+        if tranche != approved:
+            raise gl.vm.UserError("only the latest approved tranche can be challenged")
+        if not isinstance(reason, str) or len(reason.strip()) == 0:
+            raise gl.vm.UserError("a challenge needs a reason")
+        if len(reason) > MAX_REASON:
+            raise gl.vm.UserError(f"the reason is longer than {MAX_REASON} characters")
+        if grant.status == CLOSED:
+            raise gl.vm.UserError("this grant is closed")
+        key = f"{grant.id}#{tranche}"
+        if self.challenges.get(key) is not None:
+            raise gl.vm.UserError(f"tranche {tranche} was already challenged once")
+
+        receipt = self._approved_receipt(grant.id, tranche)
+        if receipt is None:
+            raise gl.vm.UserError(f"tranche {tranche} has no receipt on chain")
+
+        criteria = self._rubric(grant)
+        reread = GrantTranche._read_page(receipt.evidence_url, criteria)
+        upheld = reread["met"] < reread["total"]
+
+        challenge = Challenge(
+            grant_id=grant.id, tranche=u256(tranche), receipt_seq=receipt.seq,
+            caller=self._sender(), reason=reason.strip(),
+            state="upheld" if upheld else "rejected",
+            reread_met=u256(reread["met"]), reread_total=u256(reread["total"]),
+            reread_verdict=self._canonical(reread["verdict"]),
+            answer_url="", answer_met=u256(0), answer_total=u256(0), answer_verdict="",
+            created_at=u256(int(_dt.datetime.now(_dt.timezone.utc).timestamp())),
+        )
+        self.challenges[key] = challenge
+
+        if upheld:
+            receipt.revoked = True
+            self.receipts[f"{grant.id}#{int(receipt.seq)}"] = receipt
+            grant.approved = u256(approved - 1)
+            grant.best = u256(reread["met"])
+            if grant.status == COMPLETE:
+                grant.status = OPEN
+            self.grants[grant.id] = grant
+        return self._challenge_dict(challenge)
+
+    @gl.public.write
+    def answer_challenge(self, grant_id: str, tranche: int, evidence_url: str) -> dict:
+        """The grantee answers a revoked tranche once, with a page they choose.
+
+        If that page meets every criterion the tranche is restored; if it does not,
+        the revocation stands and the challenge keeps the second reading.
+        """
+        grant = self._load(grant_id)
+        if self._sender() != grant.grantee:
+            raise gl.vm.UserError("only the grantee answers a challenge")
+        key = f"{grant.id}#{tranche}"
+        challenge = self.challenges.get(key)
+        if challenge is None:
+            raise gl.vm.UserError(f"tranche {tranche} was not challenged")
+        if challenge.state != "upheld":
+            raise gl.vm.UserError(f"this challenge is {challenge.state}, there is nothing to answer")
+        if challenge.answer_url != "":
+            raise gl.vm.UserError("this challenge was answered once already")
+        if grant.status == CLOSED:
+            raise gl.vm.UserError("this grant is closed")
+        if int(grant.approved) != tranche - 1:
+            raise gl.vm.UserError("this tranche already has a standing receipt from a new submission")
+        if not _is_url(evidence_url):
+            raise gl.vm.UserError(f"the evidence URL {evidence_url!r} is not an http(s) URL")
+
+        criteria = self._rubric(grant)
+        reading = GrantTranche._read_page(evidence_url, criteria)
+        challenge.answer_url = evidence_url.strip()
+        challenge.answer_met = u256(reading["met"])
+        challenge.answer_total = u256(reading["total"])
+        challenge.answer_verdict = self._canonical(reading["verdict"])
+
+        if reading["met"] == reading["total"]:
+            challenge.state = "restored"
+            grant.approved = u256(int(grant.approved) + 1)
+            grant.best = u256(0)
+            if int(grant.approved) >= int(grant.tranches):
+                grant.status = COMPLETE
+            self.grants[grant.id] = grant
+        self.challenges[key] = challenge
+        return self._challenge_dict(challenge)
+
     # -------------------------------------------------------------------- views
 
     @gl.public.view
     def get_grant(self, grant_id: str) -> dict:
         grant = self._load(grant_id)
         criteria = self._rubric(grant)
+        approved = int(grant.approved)
+        focus = approved if approved > 0 else 1
+        latest = self.challenges.get(f"{grant.id}#{focus}")
         return {
             "id": grant.id, "funder": grant.funder, "grantee": grant.grantee,
             "title": grant.title, "rubric": criteria,
-            "tranches": int(grant.tranches), "approved": int(grant.approved),
-            "current_tranche": min(int(grant.approved) + 1, int(grant.tranches)),
+            "tranches": int(grant.tranches), "approved": approved,
+            "current_tranche": min(approved + 1, int(grant.tranches)),
             "best": int(grant.best), "attempts": int(grant.attempts),
             "status": grant.status,
-            "next_tranche": int(grant.approved) + 1 if grant.status == OPEN else 0,
+            "next_tranche": approved + 1 if grant.status == OPEN else 0,
+            "challenge": self._challenge_dict(latest) if latest is not None else {},
+            "can_challenge": bool(approved > 0 and latest is None and grant.status != CLOSED),
             "created_at": int(grant.created_at),
         }
+
+    @gl.public.view
+    def challenges_of(self, grant_id: str) -> list:
+        grant = self._load(grant_id)
+        out = []
+        for tranche in range(1, int(grant.tranches) + 1):
+            found = self.challenges.get(f"{grant.id}#{tranche}")
+            if found is not None:
+                out.append(self._challenge_dict(found))
+        return out
 
     @gl.public.view
     def receipts_of(self, grant_id: str) -> list:
